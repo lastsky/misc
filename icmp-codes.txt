@@ -1,0 +1,9 @@
+ !H - host unreachable
+ !N - network unreachable
+ !P - protocol unreachable
+ !S - source route failed
+ !F - fragmentation needed
+ !X - communication administratively prohibited
+ !V - host precedence violation
+ !C - precedence cutoff in effect
+ !# - ICMP unreachable code #
