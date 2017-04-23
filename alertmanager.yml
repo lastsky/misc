@@ -1,0 +1,137 @@
+global:
+ resolve_timeout: 1m
+
+route:
+ group_by: ['alertname','instance','job']
+
+ repeat_interval: 8h
+
+ # If an alert isn't caught by a route, send it slack route (default).
+ receiver: slack
+ routes:
+  - match:
+      channel: production
+    receiver: slack_production
+    continue: true
+  - match:
+      channel: ci-cd
+    receiver: slack_ci
+    continue: true
+  - match:
+      channel: gitaly
+    receiver: slack_gitaly
+    continue: true
+  - match:
+      severity: critical
+    receiver: slack_critical
+    continue: true
+  - match:
+      severity: warn
+    receiver: slack_warn
+    continue: true
+  - match:
+      severity: info
+    receiver: slack_info
+    continue: true
+  - match:
+      pager: pagerduty
+      priority: low
+    receiver: pagerduty-low
+  - match:
+      pager: pagerduty
+    receiver: pagerduty
+
+receivers:
+- name: slack
+  slack_configs:
+  - send_resolved: true
+    api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '<%= @conf['slack']['channel'] %>'
+    pretext: 'The following alert was not handled by any other receiver'
+    fallback: 'The following alert was not handled by any other receiver'
+
+- name: pagerduty
+  pagerduty_configs:
+  - service_key: '<%= @conf['pagerduty']['service_key'] %>'
+    description: '{{ .CommonAnnotations.title }}'
+    client: 'GitLab Alertmanager'
+    client_url: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    details: { note : '{{ .CommonAnnotations.description }}'}
+    send_resolved: true
+
+- name: pagerduty-low
+  pagerduty_configs:
+  - service_key: '<%= @conf['pagerduty']['low_prio_service_key'] %>'
+    description: '{{ .CommonAnnotations.title }}'
+    client: 'GitLab Alertmanager'
+    client_url: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    details: { note : '{{ .CommonAnnotations.description }}'}
+    send_resolved: true
+
+- name: slack_ci
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '#ci-cd'
+    send_resolved: true
+    icon_emoji: '{{ if eq .Status "firing" }}:bangbang:{{ else }}:ok:{{ end }}'
+    title: '{{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ if eq .Status "firing" }}{{ .CommonAnnotations.description }}{{ end }}'
+    fallback: '{{ if eq .Status "firing" }} {{ end }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}{{ if gt (.Alerts.Firing | len) 1 }}({{ .Alerts.Firing | len }} times){{ end }}{{ end }}] {{ .CommonAnnotations.title }}'
+
+- name: slack_production
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '#production'
+    send_resolved: true
+    icon_emoji: '{{ if eq .Status "firing" }}:bangbang:{{ else }}:ok:{{ end }}'
+    title: '{{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ if eq .Status "firing" }}{{ .CommonAnnotations.description }}{{ end }}'
+    fallback: '{{ if eq .Status "firing" }} {{ end }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}{{ if gt (.Alerts.Firing | len) 1 }}({{ .Alerts.Firing | len }} times){{ end }}{{ end }}] {{ .CommonAnnotations.title }}'
+
+- name: slack_gitaly
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '#gitaly'
+    send_resolved: true
+    icon_emoji: '{{ if eq .Status "firing" }}:bangbang:{{ else }}:ok:{{ end }}'
+    title: '{{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ if eq .Status "firing" }}{{ .CommonAnnotations.description }}{{ end }}'
+    fallback: '{{ if eq .Status "firing" }} {{ end }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}{{ if gt (.Alerts.Firing | len) 1 }}({{ .Alerts.Firing | len }} times){{ end }}{{ end }}] {{ .CommonAnnotations.title }}'
+
+- name: slack_critical
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '<%= @conf['slack']['channel'] %>'
+    send_resolved: true
+    icon_emoji: '{{ if eq .Status "firing" }}:bangbang:{{ else }}:ok:{{ end }}'
+    title: '{{ if eq .Status "firing" }}<!channel> {{ end }} {{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ if eq .Status "firing" }}{{ .CommonAnnotations.description }}{{ end }}'
+    fallback: '{{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+
+- name: slack_warn
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '<%= @conf['slack']['channel'] %>'
+    color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+    send_resolved: true
+    icon_emoji: '{{ if eq .Status "firing" }}:bangbang:{{ else }}:ok:{{ end }}'
+    title: '{{ if eq .Status "firing" }}<!channel> {{ end }} {{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ if eq .Status "firing" }}{{ .CommonAnnotations.description }}{{ end }}'
+    fallback: '{{ if ne .Status "firing" }}[{{ .Status | toUpper }}]{{ end }} {{ .CommonAnnotations.title }}'
+
+- name: slack_info
+  slack_configs:
+  - api_url: '<%= @conf['slack']['api_url'] %>'
+    channel: '<%= @conf['slack']['channel'] %>'
+    color: 'good'
+    icon_emoji: ':exclamation:'
+    title: '<!channel> {{ .CommonAnnotations.title }}'
+    title_link: 'https://dev.gitlab.org/cookbooks/runbooks/blob/master/{{ .CommonAnnotations.runbook }}'
+    text: '{{ .CommonAnnotations.description }}'
+    fallback: '{{ .CommonAnnotations.title }}'
+
